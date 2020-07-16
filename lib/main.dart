@@ -1,4 +1,7 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:password/password.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:twitty/home_screen.dart';
 
 void main() {
@@ -6,6 +9,7 @@ void main() {
 }
 
 const primaryColor = Color(0xFF344955);
+final _firestore = Firestore.instance;
 
 class MyApp extends StatelessWidget {
   @override
@@ -21,9 +25,16 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class MyHomePage extends StatelessWidget {
+class MyHomePage extends StatefulWidget {
+  @override
+  _MyHomePageState createState() => _MyHomePageState();
+}
+
+class _MyHomePageState extends State<MyHomePage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _auth = FirebaseAuth.instance;
+  bool isLoading = false;
 
   @override
   Widget build(BuildContext context) {
@@ -36,6 +47,7 @@ class MyHomePage extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
+            isLoading ? CircularProgressIndicator() : Container(),
             Text(
               'Twitty',
               style: TextStyle(
@@ -57,27 +69,46 @@ class MyHomePage extends StatelessWidget {
                 hintText: 'Password',
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16.0),
-              child: RaisedButton(
-                child: Text(
-                  'Sign in',
-                  style: TextStyle(color: Colors.white),
-                ),
-                color: Theme.of(context).primaryColor,
-                onPressed: () {
-                  var email = _emailController.text;
-                  var password = _passwordController.text;
-                  print(email);
-                  print(password);
+            Builder(
+              builder: (context) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16.0),
+                child: RaisedButton(
+                  child: Text(
+                    'Sign In',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  color: Theme.of(context).primaryColor,
+                  onPressed: () async {
+                    setState(() {
+                      isLoading = !isLoading;
+                    });
+                    var email = _emailController.text;
+                    var password = _passwordController.text;
+                    var encryptedPassword = Password.hash(password, PBKDF2());
 
-                  if (email == 'admin@admin.com' && password == 'Password1!') {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => HomeScreen()),
-                    );
-                  }
-                },
+                    try {
+                      final loggedUser = await _auth.signInWithEmailAndPassword(
+                        email: email,
+                        password: encryptedPassword,
+                      );
+
+                      if (loggedUser != null) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => HomeScreen()),
+                        );
+                      }
+                    } catch (e) {
+                      print(e);
+                      Scaffold.of(context)
+                          .showSnackBar(SnackBar(content: Text(e.toString())));
+                    } finally {
+                      setState(() {
+                        isLoading = false;
+                      });
+                    }
+                  },
+                ),
               ),
             ),
             Row(
@@ -91,5 +122,13 @@ class MyHomePage extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  void saveUserDataToFirestore(String email, String encryptedPassword) {
+    _firestore.collection('twitty-user').add({
+      'email': email,
+      'password': encryptedPassword,
+      'dateCreated': Timestamp.now()
+    });
   }
 }
