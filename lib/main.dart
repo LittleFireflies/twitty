@@ -35,6 +35,7 @@ class _MyHomePageState extends State<MyHomePage> {
   final _passwordController = TextEditingController();
   final _auth = FirebaseAuth.instance;
   bool isLoading = false;
+  bool _obscureText = true;
 
   @override
   Widget build(BuildContext context) {
@@ -64,8 +65,18 @@ class _MyHomePageState extends State<MyHomePage> {
             ),
             TextField(
               controller: _passwordController,
-              obscureText: true,
+              obscureText: _obscureText,
               decoration: InputDecoration(
+                suffixIcon: IconButton(
+                  onPressed: () {
+                    setState(() {
+                      _obscureText = !_obscureText;
+                    });
+                  },
+                  icon: Icon(
+                    _obscureText ? Icons.visibility : Icons.visibility_off,
+                  ),
+                ),
                 hintText: 'Password',
               ),
             ),
