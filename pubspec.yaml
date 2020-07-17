@@ -28,7 +28,6 @@ dependencies:
   firebase_auth: ^0.16.1
   password: ^1.0.0
   cloud_firestore: ^0.13.7
-  uuid: ^2.2.0
 
 dev_dependencies:
   flutter_test:

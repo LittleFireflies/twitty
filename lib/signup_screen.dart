@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:password/password.dart';
 import 'package:twitty/model/user.dart';
 import 'package:twitty/utils/constants.dart';
-import 'package:uuid/uuid.dart';
 
 final _firestore = Firestore.instance;
 
