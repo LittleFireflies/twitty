@@ -1,36 +1,23 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:password/password.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:twitty/home_screen.dart';
-import 'package:twitty/signup_screen.dart';
+import 'package:twitty/model/user.dart';
 import 'package:twitty/utils/constants.dart';
+import 'package:uuid/uuid.dart';
 
-void main() {
-  runApp(MyApp());
-}
+final _firestore = Firestore.instance;
 
-class MyApp extends StatelessWidget {
+class SignupScreen extends StatefulWidget {
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        primaryColor: primaryColor,
-        visualDensity: VisualDensity.adaptivePlatformDensity,
-      ),
-      home: MyHomePage(),
-    );
-  }
+  _SignupScreenState createState() => _SignupScreenState();
 }
 
-class MyHomePage extends StatefulWidget {
-  @override
-  _MyHomePageState createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
+class _SignupScreenState extends State<SignupScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _usernameController = TextEditingController();
+  final _displayNameController = TextEditingController();
   final _auth = FirebaseAuth.instance;
   bool isLoading = false;
   bool _obscureText = true;
@@ -39,7 +26,7 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Sign In'),
+        title: Text('Sign Up'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -59,6 +46,18 @@ class _MyHomePageState extends State<MyHomePage> {
               controller: _emailController,
               decoration: InputDecoration(
                 hintText: 'Email',
+              ),
+            ),
+            TextField(
+              controller: _usernameController,
+              decoration: InputDecoration(
+                hintText: 'Username',
+              ),
+            ),
+            TextField(
+              controller: _displayNameController,
+              decoration: InputDecoration(
+                hintText: 'Display Name',
               ),
             ),
             TextField(
@@ -83,7 +82,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 padding: const EdgeInsets.symmetric(vertical: 16.0),
                 child: RaisedButton(
                   child: Text(
-                    'Sign In',
+                    'Sign Up',
                     style: TextStyle(color: Colors.white),
                   ),
                   color: Theme.of(context).primaryColor,
@@ -92,25 +91,34 @@ class _MyHomePageState extends State<MyHomePage> {
                       isLoading = true;
                     });
                     var email = _emailController.text;
+                    var username = _usernameController.text;
+                    var displayName = _usernameController.text;
                     var password = _passwordController.text;
                     var encryptedPassword = Password.hash(password, PBKDF2());
 
                     try {
-                      final loggedUser = await _auth.signInWithEmailAndPassword(
+                      final newUser =
+                          await _auth.createUserWithEmailAndPassword(
                         email: email,
                         password: encryptedPassword,
                       );
 
-                      if (loggedUser != null) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => HomeScreen()),
-                        );
+                      var user = User(
+                        id: newUser.user.uid,
+                        email: email,
+                        username: username,
+                        displayName: displayName,
+                        password: encryptedPassword,
+                      );
+
+                      if (newUser != null) {
+                        saveUserDataToFirestore(user);
+                        Navigator.pop(context);
                       }
                     } catch (e) {
                       print(e);
-                      Scaffold.of(context)
-                          .showSnackBar(SnackBar(content: Text(e.toString())));
+                      final snackbar = SnackBar(content: Text(e.toString()));
+                      Scaffold.of(context).showSnackBar(snackbar);
                     } finally {
                       setState(() {
                         isLoading = false;
@@ -123,15 +131,12 @@ class _MyHomePageState extends State<MyHomePage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
-                Text("Dont't have an account? "),
+                Text("Already have an account? "),
                 GestureDetector(
                   onTap: () {
-                    Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => SignupScreen()));
+                    Navigator.pop(context);
                   },
-                  child: Text("Sign up",
+                  child: Text("Sign in",
                       style: TextStyle(fontWeight: FontWeight.bold)),
                 )
               ],
@@ -140,5 +145,16 @@ class _MyHomePageState extends State<MyHomePage> {
         ),
       ),
     );
+  }
+
+  void saveUserDataToFirestore(User user) {
+    _firestore.collection('twitty-user').document(user.id).setData({
+      'id': user.id,
+      'email': user.email,
+      'password': user.password,
+      'username': '@${user.username}',
+      'displayName': user.displayName,
+      'dateCreated': Timestamp.now()
+    });
   }
 }
